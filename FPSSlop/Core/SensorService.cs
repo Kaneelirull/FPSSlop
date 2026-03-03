@@ -11,6 +11,12 @@ namespace FPSSlop.Core
         private float _ramUsedGb, _ramTotalGb;
         private bool _disposed;
 
+        // WMI is slow — poll on a separate slower thread
+        private Thread? _wmiThread;
+        private volatile bool _running;
+        private float _wmiTemp, _wmiClock;
+        private readonly object _wmiLock = new();
+
         public SensorService()
         {
             _computer = new Computer
@@ -26,6 +32,64 @@ namespace FPSSlop.Core
                 IsPsuEnabled = false
             };
             _computer.Open();
+
+            _running = true;
+            _wmiThread = new Thread(WmiLoop)
+            {
+                IsBackground = true,
+                Priority = ThreadPriority.BelowNormal,
+                Name = "FPSSlop.WmiPoller"
+            };
+            _wmiThread.Start();
+        }
+
+        private void WmiLoop()
+        {
+            while (_running && !_disposed)
+            {
+                float temp  = QueryWmiTemp();
+                float clock = QueryWmiClock();
+
+                lock (_wmiLock)
+                {
+                    if (temp  > 0) _wmiTemp  = temp;
+                    if (clock > 0) _wmiClock = clock;
+                }
+
+                Thread.Sleep(2000); // WMI every 2s — plenty for temp/clock display
+            }
+        }
+
+        private static float QueryWmiTemp()
+        {
+            try
+            {
+                using var s = new ManagementObjectSearcher(
+                    @"root\WMI", "SELECT CurrentTemperature FROM MSAcpi_ThermalZoneTemperature");
+                foreach (ManagementObject o in s.Get())
+                {
+                    float c = (float)((Convert.ToDouble(o["CurrentTemperature"]) - 2732) / 10.0);
+                    if (c > 0 && c < 120) return c;
+                }
+            }
+            catch { }
+            return 0;
+        }
+
+        private static float QueryWmiClock()
+        {
+            try
+            {
+                using var s = new ManagementObjectSearcher(
+                    "SELECT CurrentClockSpeed FROM Win32_Processor");
+                foreach (ManagementObject o in s.Get())
+                {
+                    float v = Convert.ToSingle(o["CurrentClockSpeed"]);
+                    if (v > 0) return v;
+                }
+            }
+            catch { }
+            return 0;
         }
 
         public void Poll()
@@ -44,8 +108,6 @@ namespace FPSSlop.Core
                     foreach (var s in hw.Sensors)
                     {
                         float val = s.Value ?? 0;
-
-                        // Average per-core loads — CPU Total is unreliable on Ryzen
                         if (s.SensorType == SensorType.Load && s.Name.StartsWith("CPU Core #"))
                         {
                             cpuUsageSum += val;
@@ -66,50 +128,17 @@ namespace FPSSlop.Core
                 }
             }
 
-            // Both temp and clock via WMI — LHM returns 0/NaN for Ryzen 7000
-            float cpuTemp  = TryWmiCpuTemp();
-            float cpuClock = TryWmiCpuClock();
+            float wmiTemp, wmiClock;
+            lock (_wmiLock) { wmiTemp = _wmiTemp; wmiClock = _wmiClock; }
 
             lock (_lock)
             {
                 _cpuUsage    = cpuCoreCount > 0 ? cpuUsageSum / cpuCoreCount : 0;
-                _cpuTempC    = cpuTemp;
-                _cpuClockMhz = cpuClock;
+                _cpuTempC    = wmiTemp;
+                _cpuClockMhz = wmiClock;
                 _ramUsedGb   = ramUsed;
                 _ramTotalGb  = ramUsed + ramAvailable;
             }
-        }
-
-        private static float TryWmiCpuTemp()
-        {
-            try
-            {
-                using var searcher = new ManagementObjectSearcher(
-                    @"root\WMI", "SELECT CurrentTemperature FROM MSAcpi_ThermalZoneTemperature");
-                foreach (ManagementObject obj in searcher.Get())
-                {
-                    float celsius = (float)((Convert.ToDouble(obj["CurrentTemperature"]) - 2732) / 10.0);
-                    if (celsius > 0 && celsius < 120) return celsius;
-                }
-            }
-            catch { }
-            return 0;
-        }
-
-        private static float TryWmiCpuClock()
-        {
-            try
-            {
-                using var searcher = new ManagementObjectSearcher(
-                    "SELECT CurrentClockSpeed FROM Win32_Processor");
-                foreach (ManagementObject obj in searcher.Get())
-                {
-                    float val = Convert.ToSingle(obj["CurrentClockSpeed"]);
-                    if (val > 0) return val;
-                }
-            }
-            catch { }
-            return 0;
         }
 
         public (float usage, float tempC, float clockMhz) GetCpu()
@@ -126,6 +155,8 @@ namespace FPSSlop.Core
         {
             if (_disposed) return;
             _disposed = true;
+            _running = false;
+            _wmiThread?.Join(3000);
             _computer.Close();
         }
     }
