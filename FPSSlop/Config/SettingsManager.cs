@@ -18,6 +18,9 @@ namespace FPSSlop.Config
         public double OverlayX { get; set; } = 10;
         public double OverlayY { get; set; } = 10;
 
+        // FPS target process — empty string means Auto (foreground)
+        public string FpsTargetProcess { get; set; } = "";
+
         // Metrics visibility
         public bool ShowFps { get; set; } = true;
         public bool Show1PercentLow { get; set; } = true;

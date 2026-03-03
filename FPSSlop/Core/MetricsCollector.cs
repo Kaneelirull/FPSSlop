@@ -50,6 +50,9 @@ namespace FPSSlop.Core
         {
             while (_running && !_disposed)
             {
+                // Sync FPS target from settings
+                _fps.TargetProcessName = Settings.FpsTargetProcess ?? "";
+
                 _sensors.Poll();
                 _nvidia.Poll();
 

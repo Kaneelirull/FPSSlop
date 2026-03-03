@@ -122,6 +122,22 @@
                 </StackPanel>
             </GroupBox>
 
+            <!-- FPS TARGET -->
+            <GroupBox Header="FPS TARGET">
+                <StackPanel>
+                    <Label Content="Track FPS for process"/>
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="Auto"/>
+                        </Grid.ColumnDefinitions>
+                        <ComboBox x:Name="CboFpsTarget" Grid.Column="0" Margin="0,2,4,6"/>
+                        <Button x:Name="BtnRefreshProcesses" Grid.Column="1" Content="↺" Width="28"
+                                Margin="0,2,0,6" Click="BtnRefreshProcesses_Click" ToolTip="Refresh process list"/>
+                    </Grid>
+                </StackPanel>
+            </GroupBox>
+
             <!-- METRICS -->
             <GroupBox Header="METRICS">
                 <WrapPanel>

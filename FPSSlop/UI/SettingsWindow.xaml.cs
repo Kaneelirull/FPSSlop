@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Forms;
@@ -44,6 +45,8 @@ namespace FPSSlop.UI
             }
             CboFpsMonitor.SelectedIndex    = Math.Clamp(_settings.FpsSourceMonitorIndex, 0, screens.Length - 1);
             CboOverlayMonitor.SelectedIndex = Math.Clamp(_settings.OverlayMonitorIndex,   0, screens.Length - 1);
+
+            PopulateFpsTargetList(_settings.FpsTargetProcess);
 
             ChkFps.IsChecked       = _settings.ShowFps;
             ChkFrameTime.IsChecked = _settings.ShowFrameTime;
@@ -121,6 +124,43 @@ namespace FPSSlop.UI
             BuildRowOrderUi();
         }
 
+        // ── FPS Target Process ────────────────────────────────────────────────
+
+        private void PopulateFpsTargetList(string currentTarget)
+        {
+            CboFpsTarget.Items.Clear();
+            CboFpsTarget.Items.Add("Auto (foreground)");
+
+            var procs = Process.GetProcesses()
+                .Where(p => p.Id > 4 && !string.IsNullOrEmpty(p.ProcessName))
+                .Select(p => p.ProcessName + ".exe")
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .OrderBy(n => n)
+                .ToList();
+
+            foreach (var name in procs)
+                CboFpsTarget.Items.Add(name);
+
+            // Select saved target
+            if (string.IsNullOrEmpty(currentTarget))
+            {
+                CboFpsTarget.SelectedIndex = 0;
+            }
+            else
+            {
+                int idx = CboFpsTarget.Items.IndexOf(currentTarget);
+                CboFpsTarget.SelectedIndex = idx >= 0 ? idx : 0;
+            }
+        }
+
+        private void BtnRefreshProcesses_Click(object sender, RoutedEventArgs e)
+        {
+            string current = CboFpsTarget.SelectedIndex > 0
+                ? CboFpsTarget.SelectedItem?.ToString() ?? ""
+                : "";
+            PopulateFpsTargetList(current);
+        }
+
         // ── Apply ─────────────────────────────────────────────────────────────
 
         private void BtnApply_Click(object sender, RoutedEventArgs e)
@@ -131,6 +171,8 @@ namespace FPSSlop.UI
             _settings.ScaleFactor       = SliderScale.Value;
             _settings.FpsSourceMonitorIndex  = CboFpsMonitor.SelectedIndex;
             _settings.OverlayMonitorIndex    = CboOverlayMonitor.SelectedIndex;
+            _settings.FpsTargetProcess       = CboFpsTarget.SelectedIndex <= 0
+                ? "" : CboFpsTarget.SelectedItem?.ToString() ?? "";
 
             _settings.ShowFps          = ChkFps.IsChecked == true;
             _settings.ShowFrameTime    = ChkFrameTime.IsChecked == true;

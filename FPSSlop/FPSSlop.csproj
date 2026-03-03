@@ -34,4 +34,11 @@
     <Resource Include="Assets\Icons\**" />
   </ItemGroup>
 
+  <ItemGroup>
+    <Content Include="Resources\PresentMon.exe">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+      <Link>PresentMon.exe</Link>
+    </Content>
+  </ItemGroup>
+
 </Project>
