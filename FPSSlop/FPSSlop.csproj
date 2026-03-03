@@ -1,0 +1,33 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net8.0-windows</TargetFramework>
+    <UseWPF>true</UseWPF>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <AssemblyName>FPSSlop</AssemblyName>
+    <RootNamespace>FPSSlop</RootNamespace>
+    <Platforms>x64</Platforms>
+    <RuntimeIdentifier>win-x64</RuntimeIdentifier>
+    <ApplicationManifest>app.manifest</ApplicationManifest>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <!-- LibreHardwareMonitor for CPU/RAM/general sensors -->
+    <PackageReference Include="LibreHardwareMonitorLib" Version="0.9.3" />
+    <!-- System.Text.Json for config persistence -->
+    <PackageReference Include="System.Text.Json" Version="8.0.5" />
+    <!-- Hardcodet.NotifyIcon.Wpf for system tray -->
+    <PackageReference Include="Hardcodet.NotifyIcon.Wpf" Version="1.1.0" />
+    <!-- WMI for CPU temp fallback -->
+    <PackageReference Include="System.Management" Version="8.0.0" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Resource Include="Assets\Fonts\**" />
+    <Resource Include="Assets\Icons\**" />
+  </ItemGroup>
+
+</Project>
