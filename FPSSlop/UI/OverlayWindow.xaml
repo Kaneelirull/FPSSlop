@@ -12,13 +12,32 @@
         SizeToContent="WidthAndHeight">
 
     <Border x:Name="RootBorder"
-            Background="#CC0D0D0D"
-            BorderBrush="#2A2A2A"
-            BorderThickness="1"
+            BorderThickness="2"
             Padding="10,8">
-
-        <!-- Rows injected in code-behind so order is configurable -->
+        <Border.Background>
+            <DrawingBrush TileMode="Tile" Viewport="0,0,1,4" ViewportUnits="Absolute">
+                <DrawingBrush.Drawing>
+                    <DrawingGroup>
+                        <GeometryDrawing Brush="#E0080808">
+                            <GeometryDrawing.Geometry>
+                                <RectangleGeometry Rect="0,0,1,4"/>
+                            </GeometryDrawing.Geometry>
+                        </GeometryDrawing>
+                        <GeometryDrawing Brush="#18FFFFFF">
+                            <GeometryDrawing.Geometry>
+                                <RectangleGeometry Rect="0,0,1,1"/>
+                            </GeometryDrawing.Geometry>
+                        </GeometryDrawing>
+                    </DrawingGroup>
+                </DrawingBrush.Drawing>
+            </DrawingBrush>
+        </Border.Background>
+        <Border.BorderBrush>
+            <LinearGradientBrush StartPoint="0,0" EndPoint="1,1">
+                <GradientStop Color="#FF00FF88" Offset="0"/>
+                <GradientStop Color="#FF0088FF" Offset="1"/>
+            </LinearGradientBrush>
+        </Border.BorderBrush>
         <StackPanel x:Name="MetricsPanel" Orientation="Vertical"/>
-
     </Border>
 </Window>

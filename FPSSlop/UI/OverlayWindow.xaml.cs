@@ -63,23 +63,38 @@ namespace FPSSlop.UI
 
         // ── Row construction ──────────────────────────────────────────────────
 
+        // ── 16-bit color palette ──────────────────────────────────────────────
+        // FPS row  — classic green
+        private static readonly Color ColFpsVal   = Color.FromRgb(0x00, 0xFF, 0x44);
+        // GPU row  — hot orange
+        private static readonly Color ColGpuVal   = Color.FromRgb(0xFF, 0x88, 0x00);
+        // CPU row  — electric cyan
+        private static readonly Color ColCpuVal   = Color.FromRgb(0x00, 0xCC, 0xFF);
+        // RAM      — magenta/purple
+        private static readonly Color ColRamVal   = Color.FromRgb(0xDD, 0x44, 0xFF);
+        // Labels   — dim blue-grey
+        private static readonly Color ColLabel    = Color.FromRgb(0x55, 0x77, 0x88);
+
+        private static readonly FontFamily PixelFont =
+            new FontFamily(new Uri("pack://application:,,,/"), "/Assets/Fonts/#Press Start 2P");
+
         private TextBlock MakeLabel(string text) => new()
         {
-            Text = text,
-            Foreground = new SolidColorBrush(Color.FromRgb(0x88, 0x88, 0x88)),
-            FontFamily = new FontFamily("Consolas"),
-            FontSize = _settings.FontSize,
-            Margin = new Thickness(0, 0, 5, 0)
+            Text       = text,
+            Foreground = new SolidColorBrush(ColLabel),
+            FontFamily = PixelFont,
+            FontSize   = _settings.FontSize * 0.7,
+            Margin     = new Thickness(0, 0, 5, 0),
+            VerticalAlignment = VerticalAlignment.Center
         };
 
-        private TextBlock MakeValue(bool accent = false) => new()
+        private TextBlock MakeValue(Color color) => new()
         {
-            Foreground = accent
-                ? (SolidColorBrush)new BrushConverter().ConvertFrom(_settings.AccentColorHex)!
-                : new SolidColorBrush(Color.FromRgb(0xE0, 0xE0, 0xE0)),
-            FontFamily = new FontFamily("Consolas"),
-            FontSize = _settings.FontSize,
-            Margin = new Thickness(0, 0, 12, 0)
+            Foreground = new SolidColorBrush(color),
+            FontFamily = PixelFont,
+            FontSize   = _settings.FontSize * 0.7,
+            Margin     = new Thickness(0, 0, 10, 0),
+            VerticalAlignment = VerticalAlignment.Center
         };
 
         private void BuildRows()
@@ -88,14 +103,14 @@ namespace FPSSlop.UI
             _rowPanels.Clear();
             MetricsPanel.Children.Clear();
 
-            // FPS row blocks: [fps, 1L, 0.1L, FT]
+            // FPS row — all green
             var fpsRow = new StackPanel { Orientation = Orientation.Horizontal };
             var fpsBlocks = new[]
             {
-                MakeValue(accent: true),  // FPS value
-                MakeValue(),              // 1L value
-                MakeValue(),              // 0.1L value
-                MakeValue()               // FT value
+                MakeValue(ColFpsVal),  // FPS
+                MakeValue(ColFpsVal),  // 1L
+                MakeValue(ColFpsVal),  // 0.1L
+                MakeValue(ColFpsVal),  // FT
             };
             fpsRow.Children.Add(MakeLabel("FPS"));  fpsRow.Children.Add(fpsBlocks[0]);
             fpsRow.Children.Add(MakeLabel("1L"));   fpsRow.Children.Add(fpsBlocks[1]);
@@ -104,36 +119,36 @@ namespace FPSSlop.UI
             _rowBlocks["fps"] = fpsBlocks;
             _rowPanels["fps"] = fpsRow;
 
-            // GPU row blocks: [usage, temp, core, mem, vram, power]
+            // GPU row — orange
             var gpuRow = new StackPanel { Orientation = Orientation.Horizontal };
             var gpuBlocks = new[]
             {
-                MakeValue(), MakeValue(), MakeValue(),
-                MakeValue(), MakeValue(), MakeValue()
+                MakeValue(ColGpuVal), MakeValue(ColGpuVal), MakeValue(ColGpuVal),
+                MakeValue(ColGpuVal), MakeValue(ColGpuVal), MakeValue(ColGpuVal),
             };
             gpuRow.Children.Add(MakeLabel("GPU"));  gpuRow.Children.Add(gpuBlocks[0]);
-            gpuRow.Children.Add(MakeLabel("Temp")); gpuRow.Children.Add(gpuBlocks[1]);
-            gpuRow.Children.Add(MakeLabel("Core")); gpuRow.Children.Add(gpuBlocks[2]);
-            gpuRow.Children.Add(MakeLabel("Mem"));  gpuRow.Children.Add(gpuBlocks[3]);
+            gpuRow.Children.Add(MakeLabel("TEMP")); gpuRow.Children.Add(gpuBlocks[1]);
+            gpuRow.Children.Add(MakeLabel("CORE")); gpuRow.Children.Add(gpuBlocks[2]);
+            gpuRow.Children.Add(MakeLabel("MEM"));  gpuRow.Children.Add(gpuBlocks[3]);
             gpuRow.Children.Add(MakeLabel("VRAM")); gpuRow.Children.Add(gpuBlocks[4]);
             gpuRow.Children.Add(MakeLabel("W"));    gpuRow.Children.Add(gpuBlocks[5]);
             _rowBlocks["gpu"] = gpuBlocks;
             _rowPanels["gpu"] = gpuRow;
 
-            // CPU row blocks: [usage, temp, clock, ram]
+            // CPU row — cyan, RAM value magenta
             var cpuRow = new StackPanel { Orientation = Orientation.Horizontal };
             var cpuBlocks = new[]
             {
-                MakeValue(), MakeValue(), MakeValue(), MakeValue()
+                MakeValue(ColCpuVal), MakeValue(ColCpuVal), MakeValue(ColCpuVal),
+                MakeValue(ColRamVal), // RAM gets its own color
             };
             cpuRow.Children.Add(MakeLabel("CPU"));  cpuRow.Children.Add(cpuBlocks[0]);
-            cpuRow.Children.Add(MakeLabel("Temp")); cpuRow.Children.Add(cpuBlocks[1]);
-            cpuRow.Children.Add(MakeLabel("Clk"));  cpuRow.Children.Add(cpuBlocks[2]);
+            cpuRow.Children.Add(MakeLabel("TEMP")); cpuRow.Children.Add(cpuBlocks[1]);
+            cpuRow.Children.Add(MakeLabel("CLK"));  cpuRow.Children.Add(cpuBlocks[2]);
             cpuRow.Children.Add(MakeLabel("RAM"));  cpuRow.Children.Add(cpuBlocks[3]);
             _rowBlocks["cpu"] = cpuBlocks;
             _rowPanels["cpu"] = cpuRow;
 
-            // Add rows in configured order
             RebuildRowOrder(_settings.RowOrder);
         }
 
@@ -155,8 +170,6 @@ namespace FPSSlop.UI
 
         public void ApplySettings(AppSettings s)
         {
-            bool rebuildNeeded = s.FontSize != _settings.FontSize ||
-                                 s.AccentColorHex != _settings.AccentColorHex;
             _settings = s;
             Opacity = s.Opacity;
             Left = s.OverlayX;
@@ -171,7 +184,7 @@ namespace FPSSlop.UI
                     ? style | WS_EX_TRANSPARENT | WS_EX_LAYERED
                     : style & ~WS_EX_TRANSPARENT);
 
-                BuildRows(); // always rebuild — cheap enough, guarantees font/accent/order sync
+                BuildRows();
             }
 
             RefreshVisibility(s);

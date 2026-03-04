@@ -45,6 +45,7 @@
       <CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>
       <Link>ignored-processes.txt</Link>
     </None>
+    <Resource Include="Assets\Fonts\PressStart2P.ttf"/>
   </ItemGroup>
 
   <Target Name="CopyExtraFilesToPublish" AfterTargets="Publish">
