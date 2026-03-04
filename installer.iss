@@ -52,22 +52,15 @@ Filename: "taskkill.exe"; Parameters: "/F /IM PresentMon.exe"; RunOnceId: "KillP
 [Code]
 function DotNetRuntimeInstalled: Boolean;
 var
-  KeyName: string;
-  Installed: Boolean;
   FindRec: TFindRec;
-  VersionFound: string;
 begin
-  Installed := False;
-  KeyName := 'SOFTWARE\dotnet\Setup\InstalledVersions\x64\sharedfx\Microsoft.WindowsDesktop.App';
-  if RegKeyExists(HKLM, KeyName) then
+  Result := False;
+  // .NET installs desktop runtimes to this folder — any 8.x subfolder means we're good
+  if FindFirst(ExpandConstant('{pf}\dotnet\shared\Microsoft.WindowsDesktop.App\8.*'), FindRec) then
   begin
-    if FindFirst(ExpandConstant('{pf}\dotnet\shared\Microsoft.WindowsDesktop.App\8.*'), FindRec) then
-    begin
-      Installed := True;
-      FindClose(FindRec);
-    end;
+    Result := True;
+    FindClose(FindRec);
   end;
-  Result := Installed;
 end;
 
 procedure InitializeWizard;
