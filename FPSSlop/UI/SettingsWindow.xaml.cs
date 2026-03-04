@@ -1,4 +1,5 @@
 using System.Diagnostics;
+using System.IO;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Forms;
@@ -27,7 +28,32 @@ namespace FPSSlop.UI
             _settings   = settings;
             _fpsService = fpsService;
             InitializeComponent();
-            Loaded += (_, _) => LoadToUi();
+            Loaded += (_, _) =>
+            {
+                LoadToUi();
+                StartAutoTargetTimer();
+            };
+        }
+
+        private void StartAutoTargetTimer()
+        {
+            if (_fpsService == null) return;
+            var timer = new System.Windows.Threading.DispatcherTimer
+            {
+                Interval = TimeSpan.FromSeconds(1)
+            };
+            timer.Tick += (_, _) =>
+            {
+                if (!IsVisible) return;
+                bool isAuto = CboFpsTarget.SelectedIndex == 0;
+                string auto = _fpsService.CurrentAutoTarget;
+                LblAutoTarget.Content = isAuto
+                    ? (string.IsNullOrEmpty(auto) ? "Auto targeting: —" : $"Auto targeting: {auto}")
+                    : "";
+                LblAutoTarget.Visibility = isAuto ? Visibility.Visible : Visibility.Collapsed;
+            };
+            timer.Start();
+            Closed += (_, _) => timer.Stop();
         }
 
         private void LoadToUi()
@@ -140,9 +166,11 @@ namespace FPSSlop.UI
             }
             else
             {
+                var ignored = LoadIgnoredProcesses();
                 apps = Process.GetProcesses()
                     .Where(p => p.Id > 4 && !string.IsNullOrEmpty(p.ProcessName))
                     .Select(p => p.ProcessName + ".exe")
+                    .Where(n => !ignored.Contains(n))
                     .Distinct(StringComparer.OrdinalIgnoreCase)
                     .OrderBy(n => n);
             }
@@ -151,14 +179,30 @@ namespace FPSSlop.UI
                 CboFpsTarget.Items.Add(name);
 
             if (string.IsNullOrEmpty(currentTarget) || currentTarget == "Auto")
-            {
                 CboFpsTarget.SelectedIndex = 0;
-            }
             else
             {
                 int idx = CboFpsTarget.Items.IndexOf(currentTarget);
                 CboFpsTarget.SelectedIndex = idx >= 0 ? idx : 0;
             }
+        }
+
+        private static HashSet<string> LoadIgnoredProcesses()
+        {
+            try
+            {
+                string path = Path.Combine(
+                    Path.GetDirectoryName(Environment.ProcessPath ?? "") ?? "",
+                    "ignored-processes.txt");
+                if (File.Exists(path))
+                    return new HashSet<string>(
+                        File.ReadAllLines(path)
+                            .Select(l => l.Trim().Trim('"'))
+                            .Where(l => l.Length > 0),
+                        StringComparer.OrdinalIgnoreCase);
+            }
+            catch { }
+            return new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         }
 
         private void BtnRefreshProcesses_Click(object sender, RoutedEventArgs e)

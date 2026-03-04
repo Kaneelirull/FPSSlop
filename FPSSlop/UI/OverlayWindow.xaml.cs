@@ -171,10 +171,7 @@ namespace FPSSlop.UI
                     ? style | WS_EX_TRANSPARENT | WS_EX_LAYERED
                     : style & ~WS_EX_TRANSPARENT);
 
-                if (rebuildNeeded)
-                    BuildRows(); // rebuilds with new font size / accent
-                else
-                    RebuildRowOrder(s.RowOrder);
+                BuildRows(); // always rebuild — cheap enough, guarantees font/accent/order sync
             }
 
             RefreshVisibility(s);

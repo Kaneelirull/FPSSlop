@@ -7,6 +7,7 @@ namespace FPSSlop.Core
     public sealed class FpsService : IDisposable
     {
         public string TargetProcessName { get; set; } = "";
+        public string CurrentAutoTarget { get; private set; } = "";
 
         public IReadOnlyList<string> CurrentApps
         {
@@ -227,8 +228,9 @@ namespace FPSSlop.Core
                     else
                     {
                         // Auto: pick the app with the highest instantaneous FPS.
-                        float[] best    = Array.Empty<float>();
-                        float   bestFps = 0;
+                        float[] best     = Array.Empty<float>();
+                        float   bestFps  = 0;
+                        string  bestApp  = "";
 
                         foreach (var kv in _framesByApp)
                         {
@@ -238,10 +240,11 @@ namespace FPSSlop.Core
                             if (snap.Length == 0) continue;
 
                             float snapFps = snap.Length / (snap.Sum() / 1000f);
-                            if (snapFps > bestFps) { bestFps = snapFps; best = snap; }
+                            if (snapFps > bestFps) { bestFps = snapFps; best = snap; bestApp = kv.Key; }
                         }
 
                         fts = best;
+                        CurrentAutoTarget = bestApp;
                     }
 
                     foreach (var key in _framesByApp.Keys.ToList())
@@ -280,7 +283,10 @@ namespace FPSSlop.Core
                     lock (_lock) { _fps = 0; _frameTimeMs = 0; _low1 = 0; _low01 = 0; }
                 }
 
-                if (_presentMon?.HasExited == true && _running)
+                if (!string.IsNullOrEmpty(target) && target != "Auto")
+                    CurrentAutoTarget = "";
+                else if (fts.Length == 0)
+                    CurrentAutoTarget = "";
                 {
                     Thread.Sleep(2000);
                     _headerParsed = false;

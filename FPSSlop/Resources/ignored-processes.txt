@@ -15,3 +15,10 @@ RuntimeBroker.exe
 svchost.exe
 taskhostw.exe
 sihost.exe
+FPSSlop.exe
+claude.exe
+Claude.exe
+ChatGPT.exe
+Gemini.exe
+Copilot.exe
+Perplexity.exe
