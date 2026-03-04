@@ -39,6 +39,10 @@
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
       <Link>PresentMon.exe</Link>
     </Content>
+    <Content Include="Resources\ignored-processes.txt">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+      <Link>ignored-processes.txt</Link>
+    </Content>
   </ItemGroup>
 
 </Project>

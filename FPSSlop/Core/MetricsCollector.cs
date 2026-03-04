@@ -33,6 +33,9 @@ namespace FPSSlop.Core
 
         public AppSettings Settings { get; set; }
 
+        /// <summary>Exposes the FPS service so the UI can read CurrentApps.</summary>
+        public FpsService FpsService => _fps;
+
         public void Start()
         {
             _fps.Start();

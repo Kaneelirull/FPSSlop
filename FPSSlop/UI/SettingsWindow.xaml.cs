@@ -4,12 +4,14 @@ using System.Windows.Controls;
 using System.Windows.Forms;
 using System.Windows.Media;
 using FPSSlop.Config;
+using FPSSlop.Core;
 
 namespace FPSSlop.UI
 {
     public partial class SettingsWindow : Window
     {
         private AppSettings _settings;
+        private FpsService? _fpsService;
         private List<string> _rowOrder = new();
         public event Action<AppSettings>? SettingsApplied;
 
@@ -20,9 +22,10 @@ namespace FPSSlop.UI
             { "cpu", "CPU / RAM" }
         };
 
-        public SettingsWindow(AppSettings settings)
+        public SettingsWindow(AppSettings settings, FpsService? fpsService = null)
         {
-            _settings = settings;
+            _settings   = settings;
+            _fpsService = fpsService;
             InitializeComponent();
             Loaded += (_, _) => LoadToUi();
         }
@@ -131,18 +134,26 @@ namespace FPSSlop.UI
             CboFpsTarget.Items.Clear();
             CboFpsTarget.Items.Add("Auto (foreground)");
 
-            var procs = Process.GetProcesses()
-                .Where(p => p.Id > 4 && !string.IsNullOrEmpty(p.ProcessName))
-                .Select(p => p.ProcessName + ".exe")
-                .Distinct(StringComparer.OrdinalIgnoreCase)
-                .OrderBy(n => n)
-                .ToList();
+            // Use apps seen by PresentMon if available, else fall back to all processes
+            IEnumerable<string> apps;
+            if (_fpsService != null && _fpsService.CurrentApps.Count > 0)
+            {
+                apps = _fpsService.CurrentApps
+                    .OrderBy(n => n, StringComparer.OrdinalIgnoreCase);
+            }
+            else
+            {
+                apps = Process.GetProcesses()
+                    .Where(p => p.Id > 4 && !string.IsNullOrEmpty(p.ProcessName))
+                    .Select(p => p.ProcessName + ".exe")
+                    .Distinct(StringComparer.OrdinalIgnoreCase)
+                    .OrderBy(n => n);
+            }
 
-            foreach (var name in procs)
+            foreach (var name in apps)
                 CboFpsTarget.Items.Add(name);
 
-            // Select saved target
-            if (string.IsNullOrEmpty(currentTarget))
+            if (string.IsNullOrEmpty(currentTarget) || currentTarget == "Auto")
             {
                 CboFpsTarget.SelectedIndex = 0;
             }

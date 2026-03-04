@@ -162,7 +162,7 @@ namespace FPSSlop
                     _settingsWindow.Activate();
                     return;
                 }
-                _settingsWindow = new SettingsWindow(_settings);
+                _settingsWindow = new SettingsWindow(_settings, _collector?.FpsService);
                 _settingsWindow.SettingsApplied += OnSettingsApplied;
                 _settingsWindow.Show();
             });
