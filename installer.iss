@@ -49,34 +49,3 @@ Filename: "{app}\{#MyAppExeName}"; Description: "Launch FPSSlop"; Flags: nowait 
 Filename: "taskkill.exe"; Parameters: "/F /IM FPSSlop.exe";    RunOnceId: "KillFPSSlop";    Flags: runhidden
 Filename: "taskkill.exe"; Parameters: "/F /IM PresentMon.exe"; RunOnceId: "KillPresentMon"; Flags: runhidden
 
-[Code]
-function DotNetRuntimeInstalled: Boolean;
-var
-  FindRec: TFindRec;
-begin
-  Result := False;
-  // .NET installs desktop runtimes to this folder — any 8.x subfolder means we're good
-  if FindFirst(ExpandConstant('{pf}\dotnet\shared\Microsoft.WindowsDesktop.App\8.*'), FindRec) then
-  begin
-    Result := True;
-    FindClose(FindRec);
-  end;
-end;
-
-procedure InitializeWizard;
-var
-  ResultCode: Integer;
-begin
-  if not DotNetRuntimeInstalled then
-  begin
-    MsgBox(
-      '.NET 8 Desktop Runtime is required but not installed.' + #13#10 +
-      'The installer will now download and install it.' + #13#10#13#10 +
-      'Please follow the .NET installer prompts, then re-run FPSSlop-Setup.exe.',
-      mbInformation, MB_OK);
-    ShellExec('open',
-      'https://aka.ms/dotnet/8.0/windowsdesktop-runtime-win-x64.exe',
-      '', '', SW_SHOW, ewNoWait, ResultCode);
-    Abort();
-  end;
-end;
