@@ -3,6 +3,7 @@
 #define MyAppPublisher "Kaneelirull"
 #define MyAppExeName   "FPSSlop.exe"
 #define PublishDir     "FPSSlop\bin\Release\net8.0-windows\win-x64\publish"
+#define DotNetVersion  "8.0"
 
 [Setup]
 AppId={{A1B2C3D4-E5F6-7890-ABCD-EF1234567890}
@@ -47,3 +48,42 @@ Filename: "{app}\{#MyAppExeName}"; Description: "Launch FPSSlop"; Flags: nowait 
 [UninstallRun]
 Filename: "taskkill.exe"; Parameters: "/F /IM FPSSlop.exe";    RunOnceId: "KillFPSSlop";    Flags: runhidden
 Filename: "taskkill.exe"; Parameters: "/F /IM PresentMon.exe"; RunOnceId: "KillPresentMon"; Flags: runhidden
+
+[Code]
+function DotNetRuntimeInstalled: Boolean;
+var
+  KeyName: string;
+  Installed: Boolean;
+  FindRec: TFindRec;
+  VersionFound: string;
+begin
+  Installed := False;
+  KeyName := 'SOFTWARE\dotnet\Setup\InstalledVersions\x64\sharedfx\Microsoft.WindowsDesktop.App';
+  if RegKeyExists(HKLM, KeyName) then
+  begin
+    if FindFirst(ExpandConstant('{pf}\dotnet\shared\Microsoft.WindowsDesktop.App\8.*'), FindRec) then
+    begin
+      Installed := True;
+      FindClose(FindRec);
+    end;
+  end;
+  Result := Installed;
+end;
+
+procedure InitializeWizard;
+var
+  ResultCode: Integer;
+begin
+  if not DotNetRuntimeInstalled then
+  begin
+    MsgBox(
+      '.NET 8 Desktop Runtime is required but not installed.' + #13#10 +
+      'The installer will now download and install it.' + #13#10#13#10 +
+      'Please follow the .NET installer prompts, then re-run FPSSlop-Setup.exe.',
+      mbInformation, MB_OK);
+    ShellExec('open',
+      'https://aka.ms/dotnet/8.0/windowsdesktop-runtime-win-x64.exe',
+      '', '', SW_SHOW, ewNoWait, ResultCode);
+    Abort();
+  end;
+end;
