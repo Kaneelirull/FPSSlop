@@ -25,12 +25,11 @@ CloseApplications=yes
 Name: "english"; MessagesFile: "compiler:Default.isl"
 
 [Tasks]
-Name: "startup";    Description: "Start FPSSlop with Windows"; GroupDescription: "Options:"; Flags: unchecked
-Name: "desktopicon"; Description: "Create a desktop shortcut"; GroupDescription: "Options:"; Flags: unchecked
+Name: "startup";     Description: "Start FPSSlop with Windows"; GroupDescription: "Options:"; Flags: unchecked
+Name: "desktopicon"; Description: "Create a desktop shortcut";  GroupDescription: "Options:"; Flags: unchecked
 
 [Files]
-Source: "{#PublishDir}\{#MyAppExeName}";      DestDir: "{app}"; Flags: ignoreversion
-Source: "{#PublishDir}\PresentMon.exe";        DestDir: "{app}"; Flags: ignoreversion
+Source: "{#PublishDir}\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs; Excludes: "*.pdb,ignored-processes.txt"
 Source: "{#PublishDir}\ignored-processes.txt"; DestDir: "{app}"; Flags: ignoreversion onlyifdoesntexist
 
 [Icons]
@@ -46,5 +45,5 @@ Root: HKCU; Subkey: "SOFTWARE\Microsoft\Windows\CurrentVersion\Run"; \
 Filename: "{app}\{#MyAppExeName}"; Description: "Launch FPSSlop"; Flags: nowait postinstall skipifsilent
 
 [UninstallRun]
-Filename: "taskkill.exe"; Parameters: "/F /IM FPSSlop.exe";    Flags: runhidden
-Filename: "taskkill.exe"; Parameters: "/F /IM PresentMon.exe"; Flags: runhidden
+Filename: "taskkill.exe"; Parameters: "/F /IM FPSSlop.exe";    RunOnceId: "KillFPSSlop";    Flags: runhidden
+Filename: "taskkill.exe"; Parameters: "/F /IM PresentMon.exe"; RunOnceId: "KillPresentMon"; Flags: runhidden
