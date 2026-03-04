@@ -4,6 +4,7 @@ using System.Windows.Forms;
 using FPSSlop.Config;
 using FPSSlop.Core;
 using FPSSlop.UI;
+using Microsoft.Win32;
 using Application = System.Windows.Application;
 
 namespace FPSSlop
@@ -30,6 +31,7 @@ namespace FPSSlop
             BuildTrayIcon();
             BuildOverlay();
             StartCollector();
+            ApplyStartWithWindows(_settings.StartWithWindows);
         }
 
         // ── Tray icon ─────────────────────────────────────────────────────────
@@ -170,10 +172,43 @@ namespace FPSSlop
 
         private void OnSettingsApplied(AppSettings updated)
         {
+            bool monitorChanged = updated.OverlayMonitorIndex != _settings.OverlayMonitorIndex;
+
             _settings = updated;
             if (_collector != null) _collector.Settings = updated;
+
+            // Reset position when monitor changes so overlay lands top-left of new monitor
+            if (monitorChanged)
+            {
+                _settings.OverlayX = 10;
+                _settings.OverlayY = 10;
+            }
+
             PositionOverlayOnMonitor();
-            _overlay?.ApplySettings(updated);
+            _overlay?.ApplySettings(_settings);
+            ApplyStartWithWindows(_settings.StartWithWindows);
+        }
+
+        private static void ApplyStartWithWindows(bool enable)
+        {
+            const string key  = "FPSSlop";
+            const string path = @"SOFTWARE\Microsoft\Windows\CurrentVersion\Run";
+            try
+            {
+                using var reg = Registry.CurrentUser.OpenSubKey(path, writable: true);
+                if (reg == null) return;
+                if (enable)
+                {
+                    string? exe = Environment.ProcessPath;
+                    if (!string.IsNullOrEmpty(exe))
+                        reg.SetValue(key, $"\"{exe}\"");
+                }
+                else
+                {
+                    reg.DeleteValue(key, throwOnMissingValue: false);
+                }
+            }
+            catch { }
         }
 
         private void RestartOverlay()

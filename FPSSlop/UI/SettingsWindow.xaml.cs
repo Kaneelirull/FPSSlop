@@ -38,16 +38,13 @@ namespace FPSSlop.UI
             SliderScale.Value   = _settings.ScaleFactor;
 
             var screens = Screen.AllScreens;
-            CboFpsMonitor.Items.Clear();
             CboOverlayMonitor.Items.Clear();
             for (int i = 0; i < screens.Length; i++)
             {
                 string label = $"Monitor {i + 1} ({screens[i].Bounds.Width}x{screens[i].Bounds.Height})";
-                CboFpsMonitor.Items.Add(label);
                 CboOverlayMonitor.Items.Add(label);
             }
-            CboFpsMonitor.SelectedIndex    = Math.Clamp(_settings.FpsSourceMonitorIndex, 0, screens.Length - 1);
-            CboOverlayMonitor.SelectedIndex = Math.Clamp(_settings.OverlayMonitorIndex,   0, screens.Length - 1);
+            CboOverlayMonitor.SelectedIndex = Math.Clamp(_settings.OverlayMonitorIndex, 0, screens.Length - 1);
 
             PopulateFpsTargetList(_settings.FpsTargetProcess);
 
@@ -180,7 +177,6 @@ namespace FPSSlop.UI
             _settings.PollIntervalMs    = (int)SliderPoll.Value;
             _settings.Opacity           = SliderOpacity.Value;
             _settings.ScaleFactor       = SliderScale.Value;
-            _settings.FpsSourceMonitorIndex  = CboFpsMonitor.SelectedIndex;
             _settings.OverlayMonitorIndex    = CboOverlayMonitor.SelectedIndex;
             _settings.FpsTargetProcess       = CboFpsTarget.SelectedIndex <= 0
                 ? "" : CboFpsTarget.SelectedItem?.ToString() ?? "";

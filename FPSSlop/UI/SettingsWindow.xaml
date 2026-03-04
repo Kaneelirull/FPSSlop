@@ -115,8 +115,6 @@
             <!-- DISPLAYS -->
             <GroupBox Header="DISPLAYS">
                 <StackPanel>
-                    <Label Content="FPS source monitor"/>
-                    <ComboBox x:Name="CboFpsMonitor"/>
                     <Label Content="Overlay target monitor"/>
                     <ComboBox x:Name="CboOverlayMonitor"/>
                 </StackPanel>

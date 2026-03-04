@@ -6,38 +6,41 @@ namespace FPSSlop.Core
 {
     public sealed class FpsService : IDisposable
     {
-        private const string NO_SELECTED_APP = "NONE";
-
-        /// <summary>
-        /// Process name to track. Empty / "Auto" = first non-ignored presenter.
-        /// </summary>
         public string TargetProcessName { get; set; } = "";
 
-        /// <summary>
-        /// All process names seen in the current PresentMon session (refreshed every 10s).
-        /// </summary>
         public IReadOnlyList<string> CurrentApps
         {
             get { lock (_appsLock) return _currentApps.ToList(); }
         }
 
-        private readonly object _lock    = new();
+        private readonly object _lock     = new();
         private readonly object _appsLock = new();
         private float _fps, _frameTimeMs, _low1, _low01;
         private readonly HashSet<string> _currentApps = new(StringComparer.OrdinalIgnoreCase);
         private bool _disposed;
 
-        private Process?  _presentMon;
-        private Thread?   _watchThread;
+        private Process? _presentMon;
+        private Thread?  _watchThread;
         private volatile bool _running;
 
-        // Rolling per-process frame time queues
         private readonly Dictionary<string, Queue<float>> _framesByApp = new(StringComparer.OrdinalIgnoreCase);
         private readonly object _ftLock = new();
+
+        private static readonly string LogBase = Path.Combine(Path.GetTempPath(), "FPSSlop");
+        private static readonly string CsvPath = Path.Combine(LogBase, "presentmon.csv");
 
         public void Start()
         {
             _running = true;
+            Directory.CreateDirectory(LogBase);
+
+            File.WriteAllText(Path.Combine(LogBase, "startup.txt"),
+                $"ProcessPath={Environment.ProcessPath}\n" +
+                $"AppDir={AppDir()}\n" +
+                $"PresentMonPath={PresentMonPath()}\n" +
+                $"PresentMonExists={File.Exists(PresentMonPath())}\n" +
+                $"IgnoredExists={File.Exists(IgnoredProcessesPath())}\n");
+
             StartPresentMon();
 
             _watchThread = new Thread(WatchLoop)
@@ -48,13 +51,15 @@ namespace FPSSlop.Core
             _watchThread.Start();
         }
 
-        // ── PresentMon launch ─────────────────────────────────────────────────
+        private static string AppDir() =>
+            Path.GetDirectoryName(Environment.ProcessPath ?? AppContext.BaseDirectory)
+            ?? AppContext.BaseDirectory;
 
         private static string PresentMonPath() =>
-            Path.Combine(AppContext.BaseDirectory, "PresentMon.exe");
+            Path.Combine(AppDir(), "PresentMon.exe");
 
         private static string IgnoredProcessesPath() =>
-            Path.Combine(AppContext.BaseDirectory, "ignored-processes.txt");
+            Path.Combine(AppDir(), "ignored-processes.txt");
 
         private static string BuildExcludeArgs()
         {
@@ -65,7 +70,7 @@ namespace FPSSlop.Core
                 return string.Join(" ", File.ReadAllLines(path)
                     .Select(l => l.Trim().Trim('"'))
                     .Where(l => l.Length > 0)
-                    .Select(l => $"--exclude {l}"));
+                    .Select(l => $"-exclude {l}"));
             }
             catch { return ""; }
         }
@@ -77,45 +82,67 @@ namespace FPSSlop.Core
                 string pmPath = PresentMonPath();
                 if (!File.Exists(pmPath)) return;
 
-                // Kill stale session
+                // Terminate any existing session first
                 try
                 {
                     using var killer = Process.Start(new ProcessStartInfo(pmPath,
-                        "--terminate_existing_session --no_console_stats --session_name FPSSlopPM")
+                        $"-terminate_existing -session_name FPSSlopPM")
                     { CreateNoWindow = true, UseShellExecute = false });
-                    killer?.WaitForExit(1000);
+                    killer?.WaitForExit(2000);
                 }
                 catch { }
 
+                try { if (File.Exists(CsvPath)) File.Delete(CsvPath); } catch { }
+
                 string excludes = BuildExcludeArgs();
-                var psi = new ProcessStartInfo(pmPath,
-                    $"--stop_existing_session --no_console_stats --output_stdout --session_name FPSSlopPM {excludes}")
+                string args = $"-stop_existing_session -no_top -output_stdout -session_name FPSSlopPM {excludes}";
+
+                File.WriteAllText(Path.Combine(LogBase, "pm_args.txt"),
+                    $"pmPath={pmPath}\nargs={args}\nappDir={AppDir()}\n");
+
+                var psi = new ProcessStartInfo(pmPath, args)
                 {
-                    UseShellExecute         = false,
-                    RedirectStandardOutput  = true,
-                    RedirectStandardError   = true,
-                    CreateNoWindow          = true
+                    UseShellExecute        = false,
+                    RedirectStandardOutput = true,
+                    RedirectStandardError  = true,
+                    CreateNoWindow         = true
                 };
 
                 _presentMon = Process.Start(psi);
                 if (_presentMon == null) return;
 
-                // Async stderr drain
-                _presentMon.ErrorDataReceived += (_, e) => { };
+                _presentMon.ErrorDataReceived += (_, e) =>
+                {
+                    if (!string.IsNullOrEmpty(e.Data))
+                        File.AppendAllText(Path.Combine(LogBase, "pm_err.txt"), e.Data + "\n");
+                };
                 _presentMon.BeginErrorReadLine();
 
-                // Async stdout → ParseLine
-                _presentMon.OutputDataReceived += (_, e) => ParseLine(e.Data);
+                int lineCount = 0;
+                _presentMon.OutputDataReceived += (_, e) =>
+                {
+                    if (lineCount++ < 10)
+                        File.AppendAllText(Path.Combine(LogBase, "pm_out.txt"), (e.Data ?? "<null>") + "\n");
+                    ParseLine(e.Data);
+                };
                 _presentMon.BeginOutputReadLine();
+
+                _ = Task.Run(async () =>
+                {
+                    await _presentMon.WaitForExitAsync();
+                    File.AppendAllText(Path.Combine(LogBase, "pm_err.txt"),
+                        $"PresentMon exited with code {_presentMon.ExitCode}\n");
+                });
             }
-            catch { }
+            catch (Exception ex)
+            {
+                File.WriteAllText(Path.Combine(LogBase, "pm_err.txt"), ex.ToString());
+            }
         }
 
-        // ── CSV parsing ───────────────────────────────────────────────────────
-
-        private bool   _headerParsed   = false;
-        private int    _appIdx         = 0;
-        private int    _msBetweenIdx   = 9; // default for v1.9.x
+        private bool  _headerParsed = false;
+        private int   _appIdx       = 0;
+        private int   _msBetweenIdx = 9;
 
         private void ParseLine(string? line)
         {
@@ -144,18 +171,17 @@ namespace FPSSlop.Core
                 NumberStyles.Float, CultureInfo.InvariantCulture, out float ms) || ms <= 0)
                 return;
 
-            // Track seen apps
             lock (_appsLock) _currentApps.Add(appName);
 
-            // Filter: if a target is set, only accept that app
             string target = TargetProcessName.Trim();
             if (!string.IsNullOrEmpty(target) && target != "Auto")
             {
-                if (!appName.Equals(target, StringComparison.OrdinalIgnoreCase) &&
-                    !appName.Equals(target.Replace(".exe", ""), StringComparison.OrdinalIgnoreCase))
+                string targetNoExt = target.EndsWith(".exe", StringComparison.OrdinalIgnoreCase)
+                    ? target[..^4] : target;
+                if (!appName.Equals(target,      StringComparison.OrdinalIgnoreCase) &&
+                    !appName.Equals(targetNoExt, StringComparison.OrdinalIgnoreCase))
                     return;
             }
-            // Auto: accept any app (excluded ones were already filtered by --exclude flags)
 
             lock (_ftLock)
             {
@@ -166,22 +192,18 @@ namespace FPSSlop.Core
             }
         }
 
-        // ── Stats computation ─────────────────────────────────────────────────
-
         private void WatchLoop()
         {
-            var appsRefreshTimer = System.Diagnostics.Stopwatch.StartNew();
+            var appsTimer = System.Diagnostics.Stopwatch.StartNew();
 
             while (_running && !_disposed)
             {
-                // Clear seen apps every 10s (same as CleanMeter)
-                if (appsRefreshTimer.ElapsedMilliseconds > 10_000)
+                if (appsTimer.ElapsedMilliseconds > 10_000)
                 {
                     lock (_appsLock) _currentApps.Clear();
-                    appsRefreshTimer.Restart();
+                    appsTimer.Restart();
                 }
 
-                // Pick which app's frames to use
                 string target = TargetProcessName.Trim();
                 float[] fts = Array.Empty<float>();
 
@@ -189,28 +211,54 @@ namespace FPSSlop.Core
                 {
                     if (!string.IsNullOrEmpty(target) && target != "Auto")
                     {
-                        // Fixed target
-                        if (_framesByApp.TryGetValue(target, out var q))
-                            fts = TrimToOneSecond(q);
+                        string targetNoExt = target.EndsWith(".exe", StringComparison.OrdinalIgnoreCase)
+                            ? target[..^4] : target;
+                        foreach (var kv in _framesByApp)
+                        {
+                            string keyNoExt = kv.Key.EndsWith(".exe", StringComparison.OrdinalIgnoreCase)
+                                ? kv.Key[..^4] : kv.Key;
+                            if (keyNoExt.Equals(targetNoExt, StringComparison.OrdinalIgnoreCase))
+                            {
+                                fts = kv.Value.ToArray();
+                                break;
+                            }
+                        }
                     }
                     else
                     {
-                        // Auto: use whichever app has the most recent frames
-                        float[] best = Array.Empty<float>();
+                        // Auto: pick the app with the highest instantaneous FPS.
+                        float[] best    = Array.Empty<float>();
+                        float   bestFps = 0;
+
                         foreach (var kv in _framesByApp)
                         {
-                            var trimmed = TrimToOneSecond(kv.Value);
-                            if (trimmed.Length > best.Length) best = trimmed;
+                            if (kv.Key.Equals("dwm.exe", StringComparison.OrdinalIgnoreCase)) continue;
+
+                            var snap = kv.Value.ToArray();
+                            if (snap.Length == 0) continue;
+
+                            float snapFps = snap.Length / (snap.Sum() / 1000f);
+                            if (snapFps > bestFps) { bestFps = snapFps; best = snap; }
                         }
+
                         fts = best;
                     }
 
-                    // Prune stale queues
                     foreach (var key in _framesByApp.Keys.ToList())
-                    {
                         if (_framesByApp[key].Count == 0)
                             _framesByApp.Remove(key);
+                }
+
+                if (fts.Length > 0)
+                {
+                    float sum = 0;
+                    int start = fts.Length - 1;
+                    while (start > 0 && sum + fts[start] < 1000f)
+                    {
+                        sum += fts[start];
+                        start--;
                     }
+                    fts = fts[start..];
                 }
 
                 if (fts.Length >= 2)
@@ -232,7 +280,6 @@ namespace FPSSlop.Core
                     lock (_lock) { _fps = 0; _frameTimeMs = 0; _low1 = 0; _low01 = 0; }
                 }
 
-                // Restart PresentMon if it died
                 if (_presentMon?.HasExited == true && _running)
                 {
                     Thread.Sleep(2000);
@@ -243,15 +290,6 @@ namespace FPSSlop.Core
                 Thread.Sleep(200);
             }
         }
-
-        private static float[] TrimToOneSecond(Queue<float> q)
-        {
-            while (q.Count > 1 && q.Sum() > 1000f)
-                q.Dequeue();
-            return q.ToArray();
-        }
-
-        // ── Public API ────────────────────────────────────────────────────────
 
         public (float fps, float frameTimeMs, float low1, float low01) GetStats()
         {

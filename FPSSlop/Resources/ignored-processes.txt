@@ -1,4 +1,3 @@
-"<unknown>"
 steamwebhelper.exe
 steam.exe
 EpicGamesLauncher.exe

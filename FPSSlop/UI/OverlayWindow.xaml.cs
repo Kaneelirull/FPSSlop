@@ -68,7 +68,7 @@ namespace FPSSlop.UI
             Text = text,
             Foreground = new SolidColorBrush(Color.FromRgb(0x88, 0x88, 0x88)),
             FontFamily = new FontFamily("Consolas"),
-            FontSize = 12,
+            FontSize = _settings.FontSize,
             Margin = new Thickness(0, 0, 5, 0)
         };
 
@@ -78,7 +78,7 @@ namespace FPSSlop.UI
                 ? (SolidColorBrush)new BrushConverter().ConvertFrom(_settings.AccentColorHex)!
                 : new SolidColorBrush(Color.FromRgb(0xE0, 0xE0, 0xE0)),
             FontFamily = new FontFamily("Consolas"),
-            FontSize = 12,
+            FontSize = _settings.FontSize,
             Margin = new Thickness(0, 0, 12, 0)
         };
 
@@ -155,16 +155,13 @@ namespace FPSSlop.UI
 
         public void ApplySettings(AppSettings s)
         {
+            bool rebuildNeeded = s.FontSize != _settings.FontSize ||
+                                 s.AccentColorHex != _settings.AccentColorHex;
             _settings = s;
             Opacity = s.Opacity;
             Left = s.OverlayX;
             Top  = s.OverlayY;
             MetricsPanel.LayoutTransform = new ScaleTransform(s.ScaleFactor, s.ScaleFactor);
-
-            // Update accent colour on FPS value block
-            if (_rowBlocks.TryGetValue("fps", out var fb) &&
-                ColorConverter.ConvertFromString(s.AccentColorHex) is Color c)
-                fb[0].Foreground = new SolidColorBrush(c);
 
             if (IsLoaded)
             {
@@ -174,7 +171,10 @@ namespace FPSSlop.UI
                     ? style | WS_EX_TRANSPARENT | WS_EX_LAYERED
                     : style & ~WS_EX_TRANSPARENT);
 
-                RebuildRowOrder(s.RowOrder);
+                if (rebuildNeeded)
+                    BuildRows(); // rebuilds with new font size / accent
+                else
+                    RebuildRowOrder(s.RowOrder);
             }
 
             RefreshVisibility(s);

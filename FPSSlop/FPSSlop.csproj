@@ -35,14 +35,25 @@
   </ItemGroup>
 
   <ItemGroup>
-    <Content Include="Resources\PresentMon.exe">
+    <None Include="Resources\PresentMon.exe">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+      <CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>
       <Link>PresentMon.exe</Link>
-    </Content>
-    <Content Include="Resources\ignored-processes.txt">
+    </None>
+    <None Include="Resources\ignored-processes.txt">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+      <CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>
       <Link>ignored-processes.txt</Link>
-    </Content>
+    </None>
   </ItemGroup>
+
+  <Target Name="CopyExtraFilesToPublish" AfterTargets="Publish">
+    <Copy SourceFiles="Resources\PresentMon.exe"
+          DestinationFolder="$(PublishDir)"
+          OverwriteReadOnlyFiles="true"/>
+    <Copy SourceFiles="Resources\ignored-processes.txt"
+          DestinationFolder="$(PublishDir)"
+          OverwriteReadOnlyFiles="true"/>
+  </Target>
 
 </Project>
